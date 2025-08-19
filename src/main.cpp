@@ -1,47 +1,51 @@
 #include <Arduino.h>
+
 #ifdef ARDUINO_ARCH_ESP32
-#include <WiFi.h>
+  #include <WiFi.h>
 #else
-#include <ESP8266WiFi.h>
+  #include <ESP8266WiFi.h>
 #endif
+
 #include <Espalexa.h>
 #include <WiFiManager.h>
 
-Espalexa espalexa; // Create an instance of the Espalexa class
-bool lampState = false; // Current state of the lamp
-const int relayPin = D6;
-const int wifiResetPin = D1;
+// Pin-Konstanten
+const int RELAY_PIN = D6;
+const int WIFI_RESET_PIN = D1;
 
-void lampControl(uint8_t brightness) {
-  lampState = brightness == 255;
-  digitalWrite(relayPin, lampState ? HIGH : LOW); // Control the relay
+// Globale Variablen
+Espalexa espalexa;
+bool lampState = false;
+
+// Callback für Espalexa-Gerät
+void lampControl(uint8_t brightness) 
+{
+  lampState = (brightness == 255);
+  digitalWrite(RELAY_PIN, lampState ? HIGH : LOW);
 }
 
-void addDevices(){
-  // Define your devices here.
+// Espalexa-Geräte hinzufügen
+void addDevices() 
+{
   espalexa.addDevice("espAlexaTest", lampControl);
   espalexa.begin();
 }
 
-void setup() {
+void setup() 
+{
   Serial.begin(115200);
 
-  pinMode(wifiResetPin, INPUT);
+  pinMode(WIFI_RESET_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW); // Relais initial aus
 
-  pinMode(relayPin, OUTPUT);
-  digitalWrite(relayPin, LOW); // Ensure the relay is off initially
+  WiFiManager wm;
 
-
-
-   WiFiManager wm;
-
-  // prüfen ob der Button beim Start gedrückt wird
-  int val = digitalRead(wifiResetPin);   // read the input pin
-
-  if (val == 1) {
+  // Prüfen, ob Reset-Button beim Start gedrückt wird
+  if (digitalRead(WIFI_RESET_PIN) == HIGH) {
     Serial.println("Button gedrückt -> WLAN-Daten löschen");
-    wm.resetSettings();   // löscht gespeicherte SSID + Passwort
-    ESP.restart();        // Neustart
+    wm.resetSettings();
+    ESP.restart();
   }
 
   // AutoConnect startet AP, wenn keine gültigen Credentials vorhanden sind
@@ -49,16 +53,15 @@ void setup() {
     Serial.println("Keine Verbindung hergestellt, Neustart...");
     ESP.restart();
   }
+
   Serial.println("Verbunden mit: " + WiFi.SSID());
 
-
-
   addDevices();
-  //espalexa.getDevice(1)->setState(true);
 }
 
-void loop() {
-  espalexa.loop(); // Keep the library running
+void loop() 
+{
+  espalexa.loop(); // Espalexa am Leben halten
   delay(2);
 }
 
