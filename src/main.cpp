@@ -25,27 +25,40 @@ int16_t sBuffer[bufferLen];
 Espalexa espalexa;
 bool lampState = false;
 
-// LED-Pins definieren
-const int LED_LINKS[5]  = {27, 26, 25, 33, 32};
-const int LED_RECHTS[5] = {16, 17, 5, 18, 19};
+// LED-Pins für Rückleuchten (ESP32-Pins zuordnen)
+const int RL_SCHLUSS_LINKS      = 27; // Schlusslicht / Rücklicht (rot, 5 W) - Fahrerseite
+const int RL_BREMS_LINKS        = 26; // Bremslicht (rot, 21 W) - Fahrerseite
+const int RL_BLINKER_LINKS      = 25; // Blinker (gelb, 21 W) - Fahrerseite
+const int RL_RUECKFAHR_LINKS    = 33; // Rückfahrlicht (weiß, 21 W) - Fahrerseite
+const int RL_NEBEL_LINKS        = 32; // Nebelschlussleuchte (rot, 21 W) - nur links
+
+const int RL_SCHLUSS_RECHTS     = 16; // Schlusslicht / Rücklicht (rot, 5 W) - Beifahrerseite
+const int RL_BREMS_RECHTS       = 17; // Bremslicht (rot, 21 W) - Beifahrerseite
+const int RL_BLINKER_RECHTS     = 5;  // Blinker (gelb, 21 W) - Beifahrerseite
+const int RL_RUECKFAHR_RECHTS   = 18; // Rückfahrlicht (weiß, 21 W) - Beifahrerseite
+// Keine Nebelschlussleuchte rechts
+
+// Optional: Arrays für Gruppenzugriff
+const int LED_LINKS[5]  = {RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS, RL_NEBEL_LINKS};
+const int LED_RECHTS[4] = {RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS};
 
 // Callback für Espalexa-Gerät
-void lampControl(uint8_t brightness) 
+void rlSchlussLinksControl(uint8_t brightness) 
 {
   lampState = (brightness > 0);
   static bool pwmInit = false;
   if (!pwmInit) {
-    ledcAttachPin(LED_LINKS[4], 0);   // Pin an Kanal 0
-    ledcSetup(0, 5000, 8);            // Kanal 0, 5kHz, 8 Bit
+    ledcAttachPin(RL_SCHLUSS_LINKS, 0); // Pin an Kanal 0
+    ledcSetup(0, 5000, 8);              // Kanal 0, 5kHz, 8 Bit
     pwmInit = true;
   }
-  ledcWrite(0, brightness);           // 0-255
+  ledcWrite(0, brightness);             // 0-255
 }
 
 // Espalexa-Geräte hinzufügen
 void addDevices() 
 {
-  espalexa.addDevice("espAlexaTest", lampControl);
+  espalexa.addDevice("espAlexaTest", rlSchlussLinksControl);
   espalexa.begin();
 }
 
@@ -86,6 +99,8 @@ void setup()
   for (int i = 0; i < 5; i++) {
     pinMode(LED_LINKS[i], OUTPUT);
     digitalWrite(LED_LINKS[i], LOW);
+  }
+  for (int i = 0; i < 4; i++) {
     pinMode(LED_RECHTS[i], OUTPUT);
     digitalWrite(LED_RECHTS[i], LOW);
   }
