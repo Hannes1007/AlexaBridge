@@ -37,10 +37,10 @@ const uint8_t RL_BLINKER_LINKS      = 2; // Kanal 2
 const uint8_t RL_RUECKFAHR_LINKS    = 3; // Kanal 3
 const uint8_t RL_NEBEL_LINKS        = 4; // Kanal 4
 
-const uint8_t RL_SCHLUSS_RECHTS     = 5; // Kanal 5
-const uint8_t RL_BREMS_RECHTS       = 6; // Kanal 6
-const uint8_t RL_BLINKER_RECHTS     = 7; // Kanal 7
-const uint8_t RL_RUECKFAHR_RECHTS   = 8; // Kanal 8
+const uint8_t RL_SCHLUSS_RECHTS     = 8; // Kanal 8
+const uint8_t RL_BREMS_RECHTS       = 9; // Kanal 9
+const uint8_t RL_BLINKER_RECHTS     = 10; // Kanal 10
+const uint8_t RL_RUECKFAHR_RECHTS   = 11; // Kanal 11
 // Keine Nebelschlussleuchte rechts
 
 // Callback für Espalexa-Gerät (Beispiel für Schlusslicht links)
