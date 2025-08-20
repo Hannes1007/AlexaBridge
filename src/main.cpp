@@ -11,13 +11,12 @@
 #include <WiFiManager.h>
 
 // Pin-Konstanten
-const int RELAY_PIN = 32; // Beispiel: GPIO32 für ESP32
-const int WIFI_RESET_PIN = 17; // Beispiel: GPIO25 für ESP32
+const int WIFI_RESET_PIN = 4; // Beispiel: GPIO25 für ESP32
 
 // I2S Mikrofon-Pins (INMP441)
-#define I2S_WS 19
-#define I2S_SD 5
-#define I2S_SCK 18
+#define I2S_WS 23
+#define I2S_SD 21
+#define I2S_SCK 22
 #define I2S_PORT I2S_NUM_0
 #define bufferLen 64
 int16_t sBuffer[bufferLen];
@@ -26,11 +25,21 @@ int16_t sBuffer[bufferLen];
 Espalexa espalexa;
 bool lampState = false;
 
+// LED-Pins definieren
+const int LED_LINKS[5]  = {27, 26, 25, 33, 32};
+const int LED_RECHTS[5] = {16, 17, 5, 18, 19};
+
 // Callback für Espalexa-Gerät
 void lampControl(uint8_t brightness) 
 {
-  lampState = (brightness == 255);
-  digitalWrite(RELAY_PIN, lampState ? HIGH : LOW);
+  lampState = (brightness > 0);
+  static bool pwmInit = false;
+  if (!pwmInit) {
+    ledcAttachPin(LED_LINKS[4], 0);   // Pin an Kanal 0
+    ledcSetup(0, 5000, 8);            // Kanal 0, 5kHz, 8 Bit
+    pwmInit = true;
+  }
+  ledcWrite(0, brightness);           // 0-255
 }
 
 // Espalexa-Geräte hinzufügen
@@ -72,8 +81,14 @@ void setup()
   Serial.println(" ");
 
   pinMode(WIFI_RESET_PIN, INPUT);
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW); // Relais initial aus
+
+  // LED-Pins initialisieren
+  for (int i = 0; i < 5; i++) {
+    pinMode(LED_LINKS[i], OUTPUT);
+    digitalWrite(LED_LINKS[i], LOW);
+    pinMode(LED_RECHTS[i], OUTPUT);
+    digitalWrite(LED_RECHTS[i], LOW);
+  }
 
   WiFiManager wm;
 
