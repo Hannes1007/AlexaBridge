@@ -43,6 +43,46 @@ const uint8_t RL_BLINKER_RECHTS     = 10; // Kanal 10
 const uint8_t RL_RUECKFAHR_RECHTS   = 11; // Kanal 11
 // Keine Nebelschlussleuchte rechts
 
+// Dynamische Max-Werte für AGC
+float dynamicMax = 1000.0;   // Startwert
+const float decay = 0.995;   // langsamer Abfall
+const float attack = 1.2;    // schneller Anstieg
+
+// Alle 9 Kanäle in ein Array packen
+const uint8_t ledChannels[9] = {
+  RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS, RL_NEBEL_LINKS,
+  RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS
+};
+
+void lightOrgan(float sample) {
+  // 1) Betrag nehmen (Lautstärke)
+  float level = abs(sample);
+
+  // 2) Dynamischen Maximalwert anpassen
+  if (level > dynamicMax) {
+    dynamicMax = level * attack;   // schnell hochziehen
+  } else {
+    dynamicMax *= decay;           // langsam abfallen lassen
+  }
+  if (dynamicMax < 500) dynamicMax = 500; // nie zu klein werden
+
+  // 3) Zahl der aktiven LEDs bestimmen (0–9)
+  int ledsOn = map(level, 0, (int)dynamicMax, 0, 9);
+  if (ledsOn > 9) ledsOn = 9;
+
+  // 4) Alle LEDs durchgehen
+  for (int i = 0; i < 9; i++) {
+    if (i < ledsOn) {
+      // zufällige Puls-Helligkeit, abhängig von Lautstärke
+      uint16_t brightness = random(2000, 4095);  
+      pwm.setPWM(ledChannels[random(0, 9)], 0, brightness);
+    } else {
+      // manche Kanäle ausblenden
+      pwm.setPWM(ledChannels[i], 0, 0);
+    }
+  }
+}
+
 // Callback für Espalexa-Gerät (Beispiel für Schlusslicht links)
 void rlSchlussLinksControl(uint8_t brightness) 
 {
@@ -141,7 +181,7 @@ void loop()
 
   if (result == ESP_OK)
   {
-    int16_t samples_read = bytesIn / 8;
+    int16_t samples_read = bytesIn / sizeof(int16_t);
     if (samples_read > 0) {
       float mean = 0;
       for (int16_t i = 0; i < samples_read; ++i) {
@@ -149,6 +189,8 @@ void loop()
       }
       mean /= samples_read;
       Serial.println(mean);
+
+      lightOrgan(mean);  // 🎶 Sound → Zufällige Puls-Lichtorgel
     }
   }
 #endif
