@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #ifdef ARDUINO_ARCH_ESP32
   #include <WiFi.h>
@@ -25,34 +27,28 @@ int16_t sBuffer[bufferLen];
 Espalexa espalexa;
 bool lampState = false;
 
-// LED-Pins für Rückleuchten (ESP32-Pins zuordnen)
-const int RL_SCHLUSS_LINKS      = 27; // Schlusslicht / Rücklicht (rot, 5 W) - Fahrerseite
-const int RL_BREMS_LINKS        = 26; // Bremslicht (rot, 21 W) - Fahrerseite
-const int RL_BLINKER_LINKS      = 25; // Blinker (gelb, 21 W) - Fahrerseite
-const int RL_RUECKFAHR_LINKS    = 33; // Rückfahrlicht (weiß, 21 W) - Fahrerseite
-const int RL_NEBEL_LINKS        = 32; // Nebelschlussleuchte (rot, 21 W) - nur links
+// PCA9685-Objekt
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-const int RL_SCHLUSS_RECHTS     = 16; // Schlusslicht / Rücklicht (rot, 5 W) - Beifahrerseite
-const int RL_BREMS_RECHTS       = 17; // Bremslicht (rot, 21 W) - Beifahrerseite
-const int RL_BLINKER_RECHTS     = 5;  // Blinker (gelb, 21 W) - Beifahrerseite
-const int RL_RUECKFAHR_RECHTS   = 18; // Rückfahrlicht (weiß, 21 W) - Beifahrerseite
+// LED-Kanäle auf dem PCA9685 (0-15)
+const uint8_t RL_SCHLUSS_LINKS      = 0; // Kanal 0
+const uint8_t RL_BREMS_LINKS        = 1; // Kanal 1
+const uint8_t RL_BLINKER_LINKS      = 2; // Kanal 2
+const uint8_t RL_RUECKFAHR_LINKS    = 3; // Kanal 3
+const uint8_t RL_NEBEL_LINKS        = 4; // Kanal 4
+
+const uint8_t RL_SCHLUSS_RECHTS     = 5; // Kanal 5
+const uint8_t RL_BREMS_RECHTS       = 6; // Kanal 6
+const uint8_t RL_BLINKER_RECHTS     = 7; // Kanal 7
+const uint8_t RL_RUECKFAHR_RECHTS   = 8; // Kanal 8
 // Keine Nebelschlussleuchte rechts
 
-// Optional: Arrays für Gruppenzugriff
-const int LED_LINKS[5]  = {RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS, RL_NEBEL_LINKS};
-const int LED_RECHTS[4] = {RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS};
-
-// Callback für Espalexa-Gerät
+// Callback für Espalexa-Gerät (Beispiel für Schlusslicht links)
 void rlSchlussLinksControl(uint8_t brightness) 
 {
   lampState = (brightness > 0);
-  static bool pwmInit = false;
-  if (!pwmInit) {
-    ledcAttachPin(RL_SCHLUSS_LINKS, 0); // Pin an Kanal 0
-    ledcSetup(0, 5000, 8);              // Kanal 0, 5kHz, 8 Bit
-    pwmInit = true;
-  }
-  ledcWrite(0, brightness);             // 0-255
+  uint16_t pwmValue = map(brightness, 0, 255, 0, 4095);
+  pwm.setPWM(RL_SCHLUSS_LINKS, 0, pwmValue);
 }
 
 // Espalexa-Geräte hinzufügen
@@ -95,15 +91,12 @@ void setup()
 
   pinMode(WIFI_RESET_PIN, INPUT);
 
-  // LED-Pins initialisieren
-  for (int i = 0; i < 5; i++) {
-    pinMode(LED_LINKS[i], OUTPUT);
-    digitalWrite(LED_LINKS[i], LOW);
-  }
-  for (int i = 0; i < 4; i++) {
-    pinMode(LED_RECHTS[i], OUTPUT);
-    digitalWrite(LED_RECHTS[i], LOW);
-  }
+  // I2C auf benutzerdefinierte Pins legen (SDA=32, SCL=33)
+  Wire.begin(32, 33);
+
+  // PCA9685 initialisieren
+  pwm.begin();
+  pwm.setPWMFreq(1000); // 1kHz für LEDs
 
   WiFiManager wm;
 
