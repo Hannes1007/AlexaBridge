@@ -12,6 +12,9 @@
 #include <Espalexa.h>
 #include <WiFiManager.h>
 
+int pos = 0;    // variable to store the servo position
+
+
 // Pin-Konstanten
 const int WIFI_RESET_PIN = 4; // Beispiel: GPIO25 für ESP32
 
@@ -83,18 +86,41 @@ void lightOrgan(float sample) {
   }
 }
 
+int angleToPulse(int ang) {
+  return map(ang, 0, 180, 150, 600);
+}
+
 // Callback für Espalexa-Gerät (Beispiel für Schlusslicht links)
 void rlSchlussLinksControl(uint8_t brightness) 
 {
   lampState = (brightness > 0);
   uint16_t pwmValue = map(brightness, 0, 255, 0, 4095);
   pwm.setPWM(RL_SCHLUSS_LINKS, 0, pwmValue);
+
+  pwm.setPWM(15, 0,  angleToPulse(brightness)/2);
+   /* // Servo von 0° bis 180°
+  for (int angle = 0; angle <= 180; angle += 5) {
+    pwm.setPWM(15, 0, angleToPulse(angle));
+    delay(50);  // Geschwindigkeit (größer = langsamer)
+  }
+
+  delay(500);
+
+  // Servo von 180° zurück auf 0°
+  for (int angle = 180; angle >= 0; angle -= 5) {
+    pwm.setPWM(15, 0, angleToPulse(angle));
+    delay(50);
+
+  }*/
 }
+
+
+
 
 // Espalexa-Geräte hinzufügen
 void addDevices() 
 {
-  espalexa.addDevice("espAlexaTest", rlSchlussLinksControl);
+  espalexa.addDevice("bulliSchlussLinks", rlSchlussLinksControl);
   espalexa.begin();
 }
 
@@ -136,7 +162,7 @@ void setup()
 
   // PCA9685 initialisieren
   pwm.begin();
-  pwm.setPWMFreq(1000); // 1kHz für LEDs
+  pwm.setPWMFreq(50); // 1kHz für LEDs / Servos laufen typischerweise mit 50 Hz
 
   WiFiManager wm;
 
@@ -164,6 +190,7 @@ void setup()
   i2s_start(I2S_PORT);
   delay(500);
 #endif
+
 }
 
 void loop() 
