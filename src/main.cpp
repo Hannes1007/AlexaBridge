@@ -14,7 +14,6 @@
 
 int pos = 0;    // variable to store the servo position
 
-
 // Pin-Konstanten
 const int WIFI_RESET_PIN = 4; // Beispiel: GPIO25 für ESP32
 
@@ -98,28 +97,49 @@ void rlSchlussLinksControl(uint8_t brightness)
   pwm.setPWM(RL_SCHLUSS_LINKS, 0, pwmValue);
 }
 
+// Globale Variablen für Nebelmaschine (millis-basiert)
+int fogChannel = 15; // Kanal für Nebelmaschine
+bool fogActive = false;
+unsigned long fogStartTime = 0;
+unsigned long fogDuration = 0; // in ms
+int onPosition = angleToPulse(90); // Position für "ein" 
+int offPosition = angleToPulse(60); // Position für "aus"
+
 void fogMachineControl(uint8_t duration) 
 {
-  //reduzierte Dauer für Nebelmaschine
-  duration = duration / 20;
-  // Beispiel-Implementierung für Nebelmaschine
+  // Reduzierte Dauer für Nebelmaschine
+  duration = duration / 30;
+
   if (duration > 0) 
   {
+    fogActive = true;
+    fogStartTime = millis();
+    fogDuration = duration * 1000UL; // in Millisekunden
     Serial.println("Nebelmaschine aktiviert für " + String(duration) + " Sekunden");
-    // Hier könnte der Code zum Aktivieren der Nebelmaschine stehen
-    pwm.setPWM(15, 0,  angleToPulse(angleToPulse(180)));
-    delay(duration * 1000); // Dauer in Sekunden
-    pwm.setPWM(15, 0, angleToPulse(angleToPulse(0))); // Zurücksetzen
 
-  } else 
+    // Aktivieren
+    pwm.setPWM(fogChannel, 0, onPosition);
+  } 
+  else 
   {
-    Serial.println("Nebelmaschine deaktiviert");  
-    // Hier könnte der Code zum Deaktivieren der Nebelmaschine stehen
-    pwm.setPWM(15, 0, angleToPulse(angleToPulse(0))); // Zurücksetzen
+    fogActive = false;
+    Serial.println("Nebelmaschine deaktiviert");
+    // Zurücksetzen
+    pwm.setPWM(fogChannel, 0, offPosition);
   }
 }
 
+// Muss in loop() aufgerufen werden, prüft Dauer
+void handleFogMachine() 
+{
+  if (fogActive && millis() - fogStartTime >= fogDuration) 
+  {
+    fogActive = false;
+    pwm.setPWM(fogChannel, 0, offPosition); // Zurücksetzen
+    Serial.println("Nebelmaschine automatisch ausgeschaltet");
 
+  }
+}
 
 // Espalexa-Geräte hinzufügen
 void addDevices() 
@@ -196,7 +216,6 @@ void setup()
   i2s_start(I2S_PORT);
   delay(500);
 #endif
-
 }
 
 void loop() 
@@ -228,7 +247,6 @@ void loop()
   }
 #endif
 
-  espalexa.loop(); // Espalexa am Leben halten
+  handleFogMachine();   // Nebelmaschine non-blocking steuern
+  espalexa.loop();      // Espalexa am Leben halten
 }
-
-
