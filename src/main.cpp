@@ -9,8 +9,13 @@
   #include <ESP8266WiFi.h>
 #endif
 
-#include <Espalexa.h>
 #include <WiFiManager.h>
+
+#include <fauxmoESP.h>
+fauxmoESP fauxmo;
+
+#define ID_fog            "bulliNebelmaschine"
+#define ID_schlussLinks   "bulliSchlussLinks"
 
 int pos = 0;    // variable to store the servo position
 
@@ -26,8 +31,7 @@ const int WIFI_RESET_PIN = 4; // Beispiel: GPIO25 für ESP32
 int16_t sBuffer[bufferLen];
 
 // Globale Variablen
-Espalexa espalexa;
-bool lampState = false;
+
 
 // PCA9685-Objekt
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -92,7 +96,6 @@ int angleToPulse(int ang) {
 // Callback für Espalexa-Gerät (Beispiel für Schlusslicht links)
 void rlSchlussLinksControl(uint8_t brightness) 
 {
-  lampState = (brightness > 0);
   uint16_t pwmValue = map(brightness, 0, 255, 0, 4095);
   pwm.setPWM(RL_SCHLUSS_LINKS, 0, pwmValue);
 }
@@ -141,14 +144,6 @@ void handleFogMachine()
   }
 }
 
-// Espalexa-Geräte hinzufügen
-void addDevices() 
-{
-  espalexa.addDevice("bulliSchlussLinks", rlSchlussLinksControl);
-  espalexa.addDevice("bulliNebelmaschine", fogMachineControl);
-
-  espalexa.begin();
-}
 
 // I2S Initialisierung
 void i2s_install() {
@@ -207,7 +202,6 @@ void setup()
 
   Serial.println("Verbunden mit: " + WiFi.SSID());
 
-  addDevices();
 
 #ifdef ARDUINO_ARCH_ESP32
   delay(1000);
@@ -216,6 +210,27 @@ void setup()
   i2s_start(I2S_PORT);
   delay(500);
 #endif
+
+  fauxmo.addDevice(ID_fog);
+    fauxmo.addDevice(ID_schlussLinks);
+
+
+    fauxmo.setPort(80); // required for gen3 devices
+    fauxmo.enable(true);
+
+    fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) 
+    {
+        Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n", device_id, device_name, state ? "ON" : "OFF", value);
+
+        if (strcmp(device_name, ID_fog)==0) 
+        {
+            fogMachineControl(value);
+        } 
+        else if (strcmp(device_name, ID_schlussLinks)==0) {
+            rlSchlussLinksControl(value);
+        }
+    });
+
 }
 
 void loop() 
@@ -246,7 +261,8 @@ void loop()
     }
   }
 #endif
+      
+  fauxmo.handle();
 
   handleFogMachine();   // Nebelmaschine non-blocking steuern
-  espalexa.loop();      // Espalexa am Leben halten
 }
