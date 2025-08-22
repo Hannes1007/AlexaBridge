@@ -96,24 +96,28 @@ void rlSchlussLinksControl(uint8_t brightness)
   lampState = (brightness > 0);
   uint16_t pwmValue = map(brightness, 0, 255, 0, 4095);
   pwm.setPWM(RL_SCHLUSS_LINKS, 0, pwmValue);
-
-  pwm.setPWM(15, 0,  angleToPulse(brightness)/2);
-   /* // Servo von 0° bis 180°
-  for (int angle = 0; angle <= 180; angle += 5) {
-    pwm.setPWM(15, 0, angleToPulse(angle));
-    delay(50);  // Geschwindigkeit (größer = langsamer)
-  }
-
-  delay(500);
-
-  // Servo von 180° zurück auf 0°
-  for (int angle = 180; angle >= 0; angle -= 5) {
-    pwm.setPWM(15, 0, angleToPulse(angle));
-    delay(50);
-
-  }*/
 }
 
+void fogMachineControl(uint8_t duration) 
+{
+  //reduzierte Dauer für Nebelmaschine
+  duration = duration / 20;
+  // Beispiel-Implementierung für Nebelmaschine
+  if (duration > 0) 
+  {
+    Serial.println("Nebelmaschine aktiviert für " + String(duration) + " Sekunden");
+    // Hier könnte der Code zum Aktivieren der Nebelmaschine stehen
+    pwm.setPWM(15, 0,  angleToPulse(angleToPulse(180)));
+    delay(duration * 1000); // Dauer in Sekunden
+    pwm.setPWM(15, 0, angleToPulse(angleToPulse(0))); // Zurücksetzen
+
+  } else 
+  {
+    Serial.println("Nebelmaschine deaktiviert");  
+    // Hier könnte der Code zum Deaktivieren der Nebelmaschine stehen
+    pwm.setPWM(15, 0, angleToPulse(angleToPulse(0))); // Zurücksetzen
+  }
+}
 
 
 
@@ -121,6 +125,8 @@ void rlSchlussLinksControl(uint8_t brightness)
 void addDevices() 
 {
   espalexa.addDevice("bulliSchlussLinks", rlSchlussLinksControl);
+  espalexa.addDevice("bulliNebelmaschine", fogMachineControl);
+
   espalexa.begin();
 }
 
