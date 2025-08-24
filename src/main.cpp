@@ -15,6 +15,7 @@ fauxmoESP fauxmo;
 
 #define ID_fog            "bulliNebelmaschine"
 #define ID_schlussLinks   "bulliSchlussLinks"
+#define ID_partyMode      "bulliPartyModus"   // 🎉 Neues Alexa-Gerät
 
 // Pin-Konstanten
 const int WIFI_RESET_PIN = 4; // Reset-Pin für WiFi (GPIO4)
@@ -65,6 +66,9 @@ int offPosition = map(60, 0, 180, 150, 600); // Servo-Position "aus"
 unsigned long lastFogTrigger = 0;        // letzter Auslösezeitpunkt
 const unsigned long fogCooldown = 15000; // Cooldown in ms (15s)
 const int fogAutoDuration = 2000;        // Dauer eines automatischen Nebelstoßes (2s)
+
+// Party-Modus
+bool partyModeActive = false; // nur wenn true → Lichtorgel läuft
 
 // Hilfsfunktion für Servo-Umrechnung
 int angleToPulse(int ang) {
@@ -198,8 +202,10 @@ void setup() {
   delay(500);
 #endif
 
+  // Alexa-Geräte registrieren
   fauxmo.addDevice(ID_fog);
   fauxmo.addDevice(ID_schlussLinks);
+  fauxmo.addDevice(ID_partyMode);   // 🎉 Party-Modus hinzufügen
 
   fauxmo.setPort(80);
   fauxmo.enable(true);
@@ -212,6 +218,9 @@ void setup() {
       fogMachineControl(value);
     } else if (strcmp(device_name, ID_schlussLinks) == 0) {
       rlSchlussLinksControl(value);
+    } else if (strcmp(device_name, ID_partyMode) == 0) {
+      partyModeActive = state;
+      Serial.println(partyModeActive ? "🎉 Party-Modus EIN" : "⏹ Party-Modus AUS");
     }
   });
 }
@@ -236,7 +245,10 @@ void loop() {
       }
       float level = sum / samples_read;
       Serial.println(level);
-      lightOrgan(level);
+
+      if (partyModeActive) {   // 🎉 Nur wenn Party-Modus aktiv
+        lightOrgan(level);
+      }
     }
   }
 #endif
