@@ -15,8 +15,7 @@
 fauxmoESP fauxmo;
 
 // =======================================================
-// === Alexa-Geräte (alle Lichter + Nebel + Party-Modus) ===
-// =======================================================
+// === Alexa-Geräte ===
 #define ID_FOG            "bulliNebelmaschine"
 
 #define ID_SCHLUSS_LINKS  "bulliSchlussLinks"
@@ -34,7 +33,6 @@ fauxmoESP fauxmo;
 
 // =======================================================
 // === Pin-Konstanten ===
-// =======================================================
 const int WIFI_RESET_PIN = 4;  // WLAN Reset Button (ESP32 Beispiel GPIO4)
 
 // I2S Mikrofon (INMP441)
@@ -47,7 +45,6 @@ int16_t sBuffer[BUFFER_LEN];
 
 // =======================================================
 // === PCA9685 LED / Servo ===
-// =======================================================
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 // LED-Kanäle links
@@ -65,19 +62,17 @@ const uint8_t RL_RUECKFAHR_RECHTS   = 11;
 
 // =======================================================
 // === Globale Variablen ===
-// =======================================================
-bool partyModeActive = false;
+bool partyModeActive = true; // Party-Modus standardmäßig an
 
 float dynamicMax = 1000.0;
 const float decay = 0.995;
 const float attack = 1.2;
 
-// Stellschraube: Empfindlichkeit der Nebelmaschine im Party-Modus
-float fogSensitivity = 1.1; // >1.0 = empfindlicher, <1.0 = unempfindlicher
+// Empfindlichkeit der Nebelmaschine im Party-Modus
+float fogSensitivity = 1.0;
 
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
-// =======================================================
 void setLedPWM(uint8_t channel, uint8_t brightness) {
   if (brightness == 0) pwm.setPWM(channel, 0, 0);
   else pwm.setPWM(channel, 0, map(brightness, 0, 255, 0, 4095));
@@ -98,7 +93,6 @@ void rlRueckfahrRechtsControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_RECHT
 
 // =======================================================
 // === Party-Modus Lichtorgel ===
-// =======================================================
 void lightOrgan(float sample) {
   float level = abs(sample);
 
@@ -122,57 +116,49 @@ void lightOrgan(float sample) {
 
 // =======================================================
 // === Nebelmaschine ===
-// =======================================================
-int fogChannel = 15;
-bool fogActive = false;
-unsigned long fogStartTime = 0;
-unsigned long fogDuration = 0;
-int onPosition  = map(90, 0, 180, 150, 600);
-int offPosition = map(60, 0, 180, 150, 600);
+struct FogMachine {
+  int channel;
+  int offPos;
+  int onPos;
+  int currentPos;
+  bool active;
+  unsigned long startTime;
+  unsigned long duration;
+  unsigned long lastTrigger;
+  unsigned long minInterval;
+};
 
-// Sanftes Verfahren des Servos
-void smoothServoMove(int channel, int startPos, int endPos, int stepDelay = 10) {
-  if (startPos < endPos) {
-    for (int pos = startPos; pos <= endPos; pos++) {
-      pwm.setPWM(channel, 0, pos);
-      delay(stepDelay);
-    }
-  } else {
-    for (int pos = startPos; pos >= endPos; pos--) {
-      pwm.setPWM(channel, 0, pos);
-      delay(stepDelay);
-    }
-  }
-  // Servo stromlos schalten
-  pwm.setPWM(channel, 0, 0);
+FogMachine fog = {15, 150, 600, 150, false, 0, 0, 0, 2000}; // minInterval = 2 Sekunden
+
+void triggerFog(unsigned long dur_ms) {
+  if (millis() - fog.lastTrigger < fog.minInterval) return;
+  fog.active = true;
+  fog.startTime = millis();
+  fog.duration = dur_ms;
+  fog.lastTrigger = millis();
+  Serial.println("💨 Nebelmaschine aktiviert für " + String(dur_ms) + " ms");
 }
 
-void fogMachineControl(uint8_t duration) {
-  duration = duration / 30;
-  if (duration > 0) {
-    fogActive = true;
-    fogStartTime = millis();
-    fogDuration = duration * 1000UL;
-    smoothServoMove(fogChannel, offPosition, onPosition);
-    Serial.println("Nebelmaschine aktiviert für " + String(duration) + " Sekunden");
-  } else {
-    fogActive = false;
-    smoothServoMove(fogChannel, onPosition, offPosition);
-    Serial.println("Nebelmaschine deaktiviert");
-  }
-}
+void updateFogMachine() {
+  fog.offPos = map(90, 0, 180, 150, 600);
+  fog.onPos = map(60, 0, 180, 150, 600);
 
-void handleFogMachine() {
-  if (fogActive && millis() - fogStartTime >= fogDuration) {
-    fogActive = false;
-    smoothServoMove(fogChannel, onPosition, offPosition);
-    Serial.println("Nebelmaschine automatisch ausgeschaltet");
+  int targetPos = fog.active ? fog.onPos : fog.offPos;
+  int step = (targetPos - fog.currentPos) / 8;
+
+  if (step != 0) {
+    fog.currentPos += step;
+    pwm.setPWM(fog.channel, 0, fog.currentPos);
+  }
+
+  if (fog.active && millis() - fog.startTime >= fog.duration) {
+    fog.active = false;
+    Serial.println("💨 Nebelmaschine automatisch ausgeschaltet");
   }
 }
 
 // =======================================================
 // === I2S Mikrofon (ESP32) ===
-// =======================================================
 #ifdef ARDUINO_ARCH_ESP32
 void i2sInstall() {
   const i2s_config_t i2s_config = {
@@ -202,7 +188,6 @@ void i2sSetPin() {
 
 // =======================================================
 // === Setup ===
-// =======================================================
 void setup() {
   Serial.begin(115200);
   pinMode(WIFI_RESET_PIN, INPUT);
@@ -211,8 +196,8 @@ void setup() {
   pwm.begin();
   pwm.setPWMFreq(50);
 
-  // Servo beim Start in Aus-Position fahren
-  smoothServoMove(fogChannel, onPosition, offPosition);
+  // Servo initial in Aus-Position
+  pwm.setPWM(fog.channel, 0, fog.offPos);
 
   // === WLAN Setup ===
   WiFiManager wm;
@@ -249,32 +234,27 @@ void setup() {
   fauxmo.setPort(80);
   fauxmo.enable(true);
 
-  // === Party-Modus direkt aktivieren ===
+  // Party-Modus direkt aktivieren
   partyModeActive = true;
-  fauxmo.setState(ID_PARTY_MODE, true, 255); // Alexa sieht Party-Modus als AN
+  fauxmo.setState(ID_PARTY_MODE, true, 255);
   Serial.println("🎉 Party-Modus standardmäßig EIN beim Start");
 
   fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
     Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n",
                   device_id, device_name, state ? "ON" : "OFF", value);
 
-    // === Nebelmaschine ===
-    if (strcmp(device_name, ID_FOG) == 0) fogMachineControl(value);
-
-    // === Party-Modus ===
+    if (strcmp(device_name, ID_FOG) == 0) triggerFog(value * 10); // Einfache Steuerung
     else if (strcmp(device_name, ID_PARTY_MODE) == 0) {
       partyModeActive = state;
       Serial.println(partyModeActive ? "🎉 Party-Modus EIN" : "⏹ Party-Modus AUS");
     }
 
-    // === Links ===
     else if (strcmp(device_name, ID_SCHLUSS_LINKS) == 0) rlSchlussLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_BREMS_LINKS) == 0)   rlBremsLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_BLINKER_LINKS) == 0) rlBlinkerLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_RUECK_LINKS) == 0)   rlRueckfahrLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_NEBEL_LINKS) == 0)   rlNebelLinksControl(state ? value : 0);
 
-    // === Rechts ===
     else if (strcmp(device_name, ID_SCHLUSS_RECHTS) == 0) rlSchlussRechtsControl(state ? value : 0);
     else if (strcmp(device_name, ID_BREMS_RECHTS) == 0)   rlBremsRechtsControl(state ? value : 0);
     else if (strcmp(device_name, ID_BLINKER_RECHTS) == 0) rlBlinkerRechtsControl(state ? value : 0);
@@ -284,31 +264,29 @@ void setup() {
 
 // =======================================================
 // === Loop ===
-// =======================================================
 void loop() {
 #ifdef ARDUINO_ARCH_ESP32
   size_t bytesIn = 0;
   esp_err_t result = i2s_read(I2S_PORT, &sBuffer, BUFFER_LEN, &bytesIn, portMAX_DELAY);
+
   if (result == ESP_OK) {
-    int16_t samples_read = bytesIn / sizeof(int16_t);
+    int samples_read = bytesIn / sizeof(int16_t);
     if (samples_read > 0) {
-      float mean = 0;
-      for (int16_t i = 0; i < samples_read; ++i) mean += sBuffer[i];
-      mean /= samples_read;
+      // RMS berechnen
+      float sum = 0;
+      for (int i = 0; i < samples_read; i++) sum += sBuffer[i] * sBuffer[i];
+      float rms = sqrt(sum / samples_read);
 
       if (partyModeActive) {
-        lightOrgan(mean);
-        
-        // === Nebelmaschine im Party-Modus ===
+        lightOrgan(rms); // Lichtorgel
+
         float threshold = dynamicMax / fogSensitivity;
-        if (abs(mean) > threshold) {
-          fogMachineControl(60); // kurze Aktivierung
-        }
+        if (rms > threshold) triggerFog(800); // Dauer 0,8s
       }
     }
   }
 #endif
 
+  updateFogMachine(); // immer aufrufen
   fauxmo.handle();
-  handleFogMachine();
 }
