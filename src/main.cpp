@@ -72,6 +72,9 @@ float dynamicMax = 1000.0;
 const float decay = 0.995;
 const float attack = 1.2;
 
+// Stellschraube: Empfindlichkeit der Nebelmaschine im Party-Modus
+float fogSensitivity = 1.2; // >1.0 = empfindlicher, <1.0 = unempfindlicher
+
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
 // =======================================================
@@ -127,17 +130,34 @@ unsigned long fogDuration = 0;
 int onPosition  = map(90, 0, 180, 150, 600);
 int offPosition = map(60, 0, 180, 150, 600);
 
+// Sanftes Verfahren des Servos
+void smoothServoMove(int channel, int startPos, int endPos, int stepDelay = 10) {
+  if (startPos < endPos) {
+    for (int pos = startPos; pos <= endPos; pos++) {
+      pwm.setPWM(channel, 0, pos);
+      delay(stepDelay);
+    }
+  } else {
+    for (int pos = startPos; pos >= endPos; pos--) {
+      pwm.setPWM(channel, 0, pos);
+      delay(stepDelay);
+    }
+  }
+  // Servo stromlos schalten
+  pwm.setPWM(channel, 0, 0);
+}
+
 void fogMachineControl(uint8_t duration) {
   duration = duration / 30;
   if (duration > 0) {
     fogActive = true;
     fogStartTime = millis();
     fogDuration = duration * 1000UL;
-    pwm.setPWM(fogChannel, 0, onPosition);
+    smoothServoMove(fogChannel, offPosition, onPosition);
     Serial.println("Nebelmaschine aktiviert für " + String(duration) + " Sekunden");
   } else {
     fogActive = false;
-    pwm.setPWM(fogChannel, 0, offPosition);
+    smoothServoMove(fogChannel, onPosition, offPosition);
     Serial.println("Nebelmaschine deaktiviert");
   }
 }
@@ -145,7 +165,7 @@ void fogMachineControl(uint8_t duration) {
 void handleFogMachine() {
   if (fogActive && millis() - fogStartTime >= fogDuration) {
     fogActive = false;
-    pwm.setPWM(fogChannel, 0, offPosition);
+    smoothServoMove(fogChannel, onPosition, offPosition);
     Serial.println("Nebelmaschine automatisch ausgeschaltet");
   }
 }
@@ -190,6 +210,9 @@ void setup() {
 
   pwm.begin();
   pwm.setPWMFreq(50);
+
+  // Servo beim Start in Aus-Position fahren
+  smoothServoMove(fogChannel, onPosition, offPosition);
 
   // === WLAN Setup ===
   WiFiManager wm;
@@ -268,7 +291,15 @@ void loop() {
       for (int16_t i = 0; i < samples_read; ++i) mean += sBuffer[i];
       mean /= samples_read;
 
-      if (partyModeActive) lightOrgan(mean);
+      if (partyModeActive) {
+        lightOrgan(mean);
+        
+        // === Nebelmaschine im Party-Modus ===
+        float threshold = dynamicMax / fogSensitivity;
+        if (abs(mean) > threshold) {
+          fogMachineControl(60); // kurze Aktivierung
+        }
+      }
     }
   }
 #endif
