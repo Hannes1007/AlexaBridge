@@ -141,7 +141,7 @@ void triggerFog(unsigned long dur_ms) {
 
 void updateFogMachine() {
   fog.offPos = map(90, 0, 180, 150, 600);
-  fog.onPos = map(60, 0, 180, 150, 600);
+  fog.onPos  = map(60, 0, 180, 150, 600);
 
   int targetPos = fog.active ? fog.onPos : fog.offPos;
   int step = (targetPos - fog.currentPos) / 8;
@@ -149,6 +149,8 @@ void updateFogMachine() {
   if (step != 0) {
     fog.currentPos += step;
     pwm.setPWM(fog.channel, 0, fog.currentPos);
+    delay(20); // kurz warten, damit Servo Position erreicht
+    pwm.setPWM(fog.channel, 0, 0); // Servo stromlos
   }
 
   if (fog.active && millis() - fog.startTime >= fog.duration) {
