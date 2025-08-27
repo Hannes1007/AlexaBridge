@@ -73,7 +73,7 @@ const float decay = 0.995;
 const float attack = 1.2;
 
 // Stellschraube: Empfindlichkeit der Nebelmaschine im Party-Modus
-float fogSensitivity = 1.2; // >1.0 = empfindlicher, <1.0 = unempfindlicher
+float fogSensitivity = 1.1; // >1.0 = empfindlicher, <1.0 = unempfindlicher
 
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
@@ -248,6 +248,11 @@ void setup() {
 
   fauxmo.setPort(80);
   fauxmo.enable(true);
+
+  // === Party-Modus direkt aktivieren ===
+  partyModeActive = true;
+  fauxmo.setState(ID_PARTY_MODE, true, 255); // Alexa sieht Party-Modus als AN
+  Serial.println("🎉 Party-Modus standardmäßig EIN beim Start");
 
   fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
     Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n",
