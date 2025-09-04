@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
 
 #ifdef ARDUINO_ARCH_ESP32
   #include <WiFi.h>
@@ -34,6 +33,7 @@ fauxmoESP fauxmo;
 // =======================================================
 // === Pin-Konstanten ===
 const int WIFI_RESET_PIN = 4;  // WLAN Reset Button (ESP32 Beispiel GPIO4)
+const int FOG_PIN = 13;         // Nebelmaschinen Servo (ESP32 Beispiel GPIO13)
 
 // I2S Mikrofon (INMP441)
 #define I2S_WS    23
@@ -43,22 +43,18 @@ const int WIFI_RESET_PIN = 4;  // WLAN Reset Button (ESP32 Beispiel GPIO4)
 #define BUFFER_LEN 64
 int16_t sBuffer[BUFFER_LEN];
 
-// =======================================================
-// === PCA9685 LED / Servo ===
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+// LED-Kanäle links (ESP32 Pins)
+const uint8_t RL_SCHLUSS_LINKS      = 32;
+const uint8_t RL_BREMS_LINKS        = 33;
+const uint8_t RL_BLINKER_LINKS      = 25;
+const uint8_t RL_RUECKFAHR_LINKS    = 26;
 
-// LED-Kanäle links
-const uint8_t RL_SCHLUSS_LINKS      = 0;
-const uint8_t RL_BREMS_LINKS        = 1;
-const uint8_t RL_BLINKER_LINKS      = 2;
-const uint8_t RL_RUECKFAHR_LINKS    = 3;
-
-// LED-Kanäle rechts
-const uint8_t RL_SCHLUSS_RECHTS     = 8;
-const uint8_t RL_BREMS_RECHTS       = 9;
-const uint8_t RL_BLINKER_RECHTS     = 10;
-const uint8_t RL_RUECKFAHR_RECHTS   = 11;
-const uint8_t RL_NEBEL_RECHTS       = 12;
+// LED-Kanäle rechts (ESP32 Pins)
+const uint8_t RL_SCHLUSS_RECHTS     = 19;
+const uint8_t RL_BREMS_RECHTS       = 18;
+const uint8_t RL_BLINKER_RECHTS     = 5;
+const uint8_t RL_RUECKFAHR_RECHTS   = 17;
+const uint8_t RL_NEBEL_RECHTS       = 16;
 
 
 // =======================================================
@@ -74,23 +70,28 @@ float fogSensitivity = 1.0;
 
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
-void setLedPWM(uint8_t channel, uint8_t brightness) {
-  if (brightness == 0) pwm.setPWM(channel, 0, 0);
-  else pwm.setPWM(channel, 0, map(brightness, 0, 255, 0, 4095));
+void setLedPWM(uint8_t pin, uint8_t brightness, uint8_t channel) {
+  static bool pwmInit[16] = {false};
+  if (!pwmInit[channel]) {
+    ledcSetup(channel, 1000, 8); // Kanal zuerst initialisieren!
+    ledcAttachPin(pin, channel);
+    pwmInit[channel] = true;
+  }
+  ledcWrite(channel, brightness);
 }
 
 // Links
-void rlSchlussLinksControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_LINKS, brightness); }
-void rlBremsLinksControl(uint8_t brightness)     { setLedPWM(RL_BREMS_LINKS, brightness); }
-void rlBlinkerLinksControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_LINKS, brightness); }
-void rlRueckfahrLinksControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_LINKS, brightness); }
+void rlSchlussLinksControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_LINKS, brightness, 0); }
+void rlBremsLinksControl(uint8_t brightness)     { setLedPWM(RL_BREMS_LINKS, brightness, 1); }
+void rlBlinkerLinksControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_LINKS, brightness, 2); }
+void rlRueckfahrLinksControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_LINKS, brightness, 3); }
 
 // Rechts
-void rlSchlussRechtsControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_RECHTS, brightness); }
-void rlBremsRechtsControl(uint8_t brightness)     { setLedPWM(RL_BREMS_RECHTS, brightness); }
-void rlBlinkerRechtsControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_RECHTS, brightness); }
-void rlRueckfahrRechtsControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_RECHTS, brightness); }
-void rlNebelRechtsControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_RECHTS, brightness); }
+void rlSchlussRechtsControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_RECHTS, brightness, 4); }
+void rlBremsRechtsControl(uint8_t brightness)     { setLedPWM(RL_BREMS_RECHTS, brightness, 5); }
+void rlBlinkerRechtsControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_RECHTS, brightness, 6); }
+void rlRueckfahrRechtsControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_RECHTS, brightness, 7); }
+void rlNebelRechtsControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_RECHTS, brightness, 8); }
 
 
 // =======================================================
@@ -111,18 +112,15 @@ void lightOrgan(float sample) {
   };
 
   for (int i = 0; i < 9; i++) {
-    if (i < ledsOn) pwm.setPWM(ledChannels[random(0,9)], 0, random(2000, 4095));
-    else pwm.setPWM(ledChannels[i], 0, 0);
+    if (i < ledsOn) setLedPWM(ledChannels[i], 255, i); // 255 = volle Helligkeit, i = Kanal
+    else setLedPWM(ledChannels[i], 0, i);
   }
 }
 
 // =======================================================
 // === Nebelmaschine ===
-struct FogMachine {
-  int channel;
-  int offPos;
-  int onPos;
-  int currentPos;
+struct FogMachine 
+{
   bool active;
   unsigned long startTime;
   unsigned long duration;
@@ -130,7 +128,7 @@ struct FogMachine {
   unsigned long minInterval;
 };
 
-FogMachine fog = {15, 150, 600, 150, false, 0, 0, 0, 2000}; // minInterval = 2 Sekunden
+FogMachine fog = {false, 0, 0, 0, 2000}; // minInterval = 2 Sekunden
 
 void triggerFog(unsigned long dur_ms) {
   if (millis() - fog.lastTrigger < fog.minInterval) return;
@@ -141,22 +139,15 @@ void triggerFog(unsigned long dur_ms) {
   Serial.println("💨 Nebelmaschine aktiviert für " + String(dur_ms) + " ms");
 }
 
-void updateFogMachine() {
-  fog.offPos = map(90, 0, 180, 150, 600);
-  fog.onPos  = map(60, 0, 180, 150, 600);
-
-  int targetPos = fog.active ? fog.onPos : fog.offPos;
-  int step = (targetPos - fog.currentPos) / 8;
-
-  if (step != 0) {
-    fog.currentPos += step;
-    pwm.setPWM(fog.channel, 0, fog.currentPos);
-    delay(20); // kurz warten, damit Servo Position erreicht
-    pwm.setPWM(fog.channel, 0, 0); // Servo stromlos
+void updateFogMachine() 
+{
+  if (fog.active == true)
+  {
+    digitalWrite(FOG_PIN, HIGH); //set FOG_PIN HIGH
   }
-
   if (fog.active && millis() - fog.startTime >= fog.duration) {
     fog.active = false;
+    digitalWrite(FOG_PIN, LOW); //set FOG_PIN LOW
     Serial.println("💨 Nebelmaschine automatisch ausgeschaltet");
   }
 }
@@ -195,13 +186,21 @@ void i2sSetPin() {
 void setup() {
   Serial.begin(115200);
   pinMode(WIFI_RESET_PIN, INPUT);
-  Wire.begin(32, 33);
 
-  pwm.begin();
-  pwm.setPWMFreq(50);
+  // Alle LED-Pins als Output setzen
+  pinMode(RL_SCHLUSS_LINKS, OUTPUT);
+  pinMode(RL_BREMS_LINKS, OUTPUT);
+  pinMode(RL_BLINKER_LINKS, OUTPUT);
+  pinMode(RL_RUECKFAHR_LINKS, OUTPUT);
 
-  // Servo initial in Aus-Position
-  pwm.setPWM(fog.channel, 0, fog.offPos);
+  pinMode(RL_SCHLUSS_RECHTS, OUTPUT);
+  pinMode(RL_BREMS_RECHTS, OUTPUT);
+  pinMode(RL_BLINKER_RECHTS, OUTPUT);
+  pinMode(RL_RUECKFAHR_RECHTS, OUTPUT);
+  pinMode(RL_NEBEL_RECHTS, OUTPUT);
+  
+  // Nebelmschine-Pin als Output setzen
+  pinMode(FOG_PIN, OUTPUT);
 
   // === WLAN Setup ===
   WiFiManager wm;
