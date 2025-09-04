@@ -22,12 +22,12 @@ fauxmoESP fauxmo;
 #define ID_BREMS_LINKS    "bulliBremsLinks"
 #define ID_BLINKER_LINKS  "bulliBlinkerLinks"
 #define ID_RUECK_LINKS    "bulliRueckLinks"
-#define ID_NEBEL_LINKS    "bulliNebelLinks"
 
 #define ID_SCHLUSS_RECHTS "bulliSchlussRechts"
 #define ID_BREMS_RECHTS   "bulliBremsRechts"
 #define ID_BLINKER_RECHTS "bulliBlinkerRechts"
 #define ID_RUECK_RECHTS   "bulliRueckRechts"
+#define ID_NEBEL_RECHTS    "bulliNebelRechts"
 
 #define ID_PARTY_MODE     "bulliPartyModus"
 
@@ -52,13 +52,14 @@ const uint8_t RL_SCHLUSS_LINKS      = 0;
 const uint8_t RL_BREMS_LINKS        = 1;
 const uint8_t RL_BLINKER_LINKS      = 2;
 const uint8_t RL_RUECKFAHR_LINKS    = 3;
-const uint8_t RL_NEBEL_LINKS        = 4;
 
 // LED-Kanäle rechts
 const uint8_t RL_SCHLUSS_RECHTS     = 8;
 const uint8_t RL_BREMS_RECHTS       = 9;
 const uint8_t RL_BLINKER_RECHTS     = 10;
 const uint8_t RL_RUECKFAHR_RECHTS   = 11;
+const uint8_t RL_NEBEL_RECHTS       = 12;
+
 
 // =======================================================
 // === Globale Variablen ===
@@ -83,13 +84,14 @@ void rlSchlussLinksControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_LINKS, b
 void rlBremsLinksControl(uint8_t brightness)     { setLedPWM(RL_BREMS_LINKS, brightness); }
 void rlBlinkerLinksControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_LINKS, brightness); }
 void rlRueckfahrLinksControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_LINKS, brightness); }
-void rlNebelLinksControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_LINKS, brightness); }
 
 // Rechts
 void rlSchlussRechtsControl(uint8_t brightness)   { setLedPWM(RL_SCHLUSS_RECHTS, brightness); }
 void rlBremsRechtsControl(uint8_t brightness)     { setLedPWM(RL_BREMS_RECHTS, brightness); }
 void rlBlinkerRechtsControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_RECHTS, brightness); }
 void rlRueckfahrRechtsControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_RECHTS, brightness); }
+void rlNebelRechtsControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_RECHTS, brightness); }
+
 
 // =======================================================
 // === Party-Modus Lichtorgel ===
@@ -104,8 +106,8 @@ void lightOrgan(float sample) {
   if (ledsOn > 9) ledsOn = 9;
 
   const uint8_t ledChannels[9] = {
-    RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS, RL_NEBEL_LINKS,
-    RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS
+    RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS,
+    RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS, RL_NEBEL_RECHTS
   };
 
   for (int i = 0; i < 9; i++) {
@@ -224,12 +226,12 @@ void setup() {
   fauxmo.addDevice(ID_BREMS_LINKS);
   fauxmo.addDevice(ID_BLINKER_LINKS);
   fauxmo.addDevice(ID_RUECK_LINKS);
-  fauxmo.addDevice(ID_NEBEL_LINKS);
 
   fauxmo.addDevice(ID_SCHLUSS_RECHTS);
   fauxmo.addDevice(ID_BREMS_RECHTS);
   fauxmo.addDevice(ID_BLINKER_RECHTS);
   fauxmo.addDevice(ID_RUECK_RECHTS);
+  fauxmo.addDevice(ID_NEBEL_RECHTS);
 
   fauxmo.addDevice(ID_PARTY_MODE);
 
@@ -255,12 +257,13 @@ void setup() {
     else if (strcmp(device_name, ID_BREMS_LINKS) == 0)   rlBremsLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_BLINKER_LINKS) == 0) rlBlinkerLinksControl(state ? value : 0);
     else if (strcmp(device_name, ID_RUECK_LINKS) == 0)   rlRueckfahrLinksControl(state ? value : 0);
-    else if (strcmp(device_name, ID_NEBEL_LINKS) == 0)   rlNebelLinksControl(state ? value : 0);
 
     else if (strcmp(device_name, ID_SCHLUSS_RECHTS) == 0) rlSchlussRechtsControl(state ? value : 0);
     else if (strcmp(device_name, ID_BREMS_RECHTS) == 0)   rlBremsRechtsControl(state ? value : 0);
     else if (strcmp(device_name, ID_BLINKER_RECHTS) == 0) rlBlinkerRechtsControl(state ? value : 0);
     else if (strcmp(device_name, ID_RUECK_RECHTS) == 0)   rlRueckfahrRechtsControl(state ? value : 0);
+    else if (strcmp(device_name, ID_NEBEL_RECHTS) == 0)   rlNebelRechtsControl(state ? value : 0);
+
   });
 }
 
