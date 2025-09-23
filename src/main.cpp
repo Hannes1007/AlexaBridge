@@ -33,7 +33,7 @@ fauxmoESP fauxmo;
 // =======================================================
 // === Pin-Konstanten ===
 const int WIFI_RESET_PIN = 4;  // WLAN Reset Button (ESP32 Beispiel GPIO4)
-const int FOG_PIN = 13;         // Nebelmaschinen Servo (ESP32 Beispiel GPIO13)
+const int FOG_PIN = 32;         // Nebelmaschinen Servo (ESP32 Beispiel GPIO13)
 
 // I2S Mikrofon (INMP441)
 #define I2S_WS    23
@@ -44,10 +44,10 @@ const int FOG_PIN = 13;         // Nebelmaschinen Servo (ESP32 Beispiel GPIO13)
 int16_t sBuffer[BUFFER_LEN];
 
 // LED-Kanäle links (ESP32 Pins)
-const uint8_t RL_SCHLUSS_LINKS      = 32;
-const uint8_t RL_BREMS_LINKS        = 33;
-const uint8_t RL_BLINKER_LINKS      = 25;
-const uint8_t RL_RUECKFAHR_LINKS    = 26;
+const uint8_t RL_SCHLUSS_LINKS      = 33;
+const uint8_t RL_BREMS_LINKS        = 25;
+const uint8_t RL_BLINKER_LINKS      = 26;
+const uint8_t RL_RUECKFAHR_LINKS    = 27;
 
 // LED-Kanäle rechts (ESP32 Pins)
 const uint8_t RL_SCHLUSS_RECHTS     = 19;
@@ -59,7 +59,7 @@ const uint8_t RL_NEBEL_RECHTS       = 16;
 
 // =======================================================
 // === Globale Variablen ===
-bool partyModeActive = true; // Party-Modus standardmäßig an
+bool partyModeActive = false; // Party-Modus standardmäßig an
 
 float dynamicMax = 1000.0;
 const float decay = 0.995;
@@ -238,9 +238,9 @@ void setup() {
   fauxmo.enable(true);
 
   // Party-Modus direkt aktivieren
-  partyModeActive = true;
-  fauxmo.setState(ID_PARTY_MODE, true, 255);
-  Serial.println("🎉 Party-Modus standardmäßig EIN beim Start");
+  partyModeActive = false;
+  fauxmo.setState(ID_PARTY_MODE, false, 0);
+  Serial.println("🎉 Party-Modus standardmäßig AUS beim Start");
 
   fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
     Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n",
