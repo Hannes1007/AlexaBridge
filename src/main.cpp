@@ -214,7 +214,7 @@ void i2sSetPin() {
 // =======================================================
 // === Firmware Update ===
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
-const char* fwVersion = "1.0.0"; // <--- Deine aktuelle Firmware-Version
+const char* fwVersion = "1.0.2"; // <--- Deine aktuelle Firmware-Version
 
 void checkForUpdates() {
     HTTPClient http;
