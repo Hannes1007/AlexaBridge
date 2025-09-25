@@ -214,7 +214,7 @@ void i2sSetPin() {
 // =======================================================
 // === Firmware Update ===
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
-const char* fwVersion = "1.0.3"; // <--- Deine aktuelle Firmware-Version
+const char* fwVersion = "1.0.4"; // <--- Deine aktuelle Firmware-Version
 
 // =======================================================
 // === OTA Update direkt nach WLAN-Connect ===
@@ -228,6 +228,9 @@ void checkForUpdates() {
     if (httpCode == 200) {
         String newVersion = http.getString();
         newVersion.trim();
+
+        Serial.println("Aktuelle Version: " + String(fwVersion));
+        Serial.println("Verfügbare Version: " + newVersion);
 
         if (newVersion != fwVersion) {
             Serial.println("Neue Firmware-Version gefunden, Update wird durchgeführt...");
