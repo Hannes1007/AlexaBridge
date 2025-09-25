@@ -246,6 +246,44 @@ void checkForUpdates() {
     http.end();
 }
 
+// --- Peak-Detection & Trigger-Limitierung ---
+const int RMS_HISTORY_SECONDS = 60;
+float rmsHistory[RMS_HISTORY_SECONDS] = {0};
+unsigned long rmsIndex = 0;
+
+unsigned long fogTriggerTimes[2] = {0, 0}; // Zeitpunkte der letzten 2 Trigger
+
+void addRmsSample(float rms) {
+    rmsHistory[rmsIndex] = rms;
+    rmsIndex = (rmsIndex + 1) % RMS_HISTORY_SECONDS;
+}
+
+float getRmsPeak() {
+    float peak = 0;
+    for (int i = 0; i < RMS_HISTORY_SECONDS; i++) {
+        if (rmsHistory[i] > peak) peak = rmsHistory[i];
+    }
+    return peak;
+}
+
+bool canTriggerFog() {
+    unsigned long now = millis();
+    int count = 0;
+    for (int i = 0; i < 2; i++) {
+        if (now - fogTriggerTimes[i] < 60000) count++;
+    }
+    return count < 2;
+}
+
+void registerFogTrigger() {
+    // Ältesten Eintrag überschreiben
+    if (fogTriggerTimes[0] < fogTriggerTimes[1]) {
+        fogTriggerTimes[0] = millis();
+    } else {
+        fogTriggerTimes[1] = millis();
+    }
+}
+
 // =======================================================
 // === Setup ===
 void setup() {
@@ -349,11 +387,20 @@ void loop() {
       for (int i = 0; i < samples_read; i++) sum += sBuffer[i] * sBuffer[i];
       float rms = sqrt(sum / samples_read);
 
+      addRmsSample(rms);
+
       if (partyModeActive) {
         lightOrgan(rms); // Lichtorgel
 
-        float threshold = dynamicMax / fogSensitivity;
-        if (rms > threshold) triggerFog(800); // Dauer 0,8s
+        // Dynamischer Schwellenwert: 90% des Maximums der letzten 60s
+        float peak = getRmsPeak();
+        float threshold = peak * 0.9;
+
+        if (rms > threshold && canTriggerFog()) {
+          unsigned long fogDuration = random(500, 1201); // 0,5–1,2s
+          triggerFog(fogDuration);
+          registerFogTrigger();
+        }
       }
     }
   }
