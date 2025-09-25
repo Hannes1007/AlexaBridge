@@ -70,6 +70,10 @@ const float attack = 1.2;
 // Empfindlichkeit der Nebelmaschine im Party-Modus
 float fogSensitivity = 1.0;
 
+// Für Party-Lichtorgel: Shuffle-Intervall global
+static unsigned long lastShuffle = 0;
+static unsigned long nextShuffleInterval = 2000;
+
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
 void setLedPWM(uint8_t pin, uint8_t brightness, uint8_t channel) {
@@ -99,24 +103,48 @@ void rlNebelRechtsControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_RECHTS, b
 // =======================================================
 // === Party-Modus Lichtorgel ===
 void lightOrgan(float sample) {
-  float level = abs(sample);
+    static uint8_t ledOrder[9] = {0,1,2,3,4,5,6,7,8};
 
-  if (level > dynamicMax) dynamicMax = level * attack;
-  else dynamicMax *= decay;
-  if (dynamicMax < 500) dynamicMax = 500;
+    // LED-Kanäle (wie gehabt)
+    const uint8_t ledPins[9] = {
+        RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS,
+        RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS, RL_NEBEL_RECHTS
+    };
 
-  int ledsOn = map(level, 0, (int)dynamicMax, 0, 9);
-  if (ledsOn > 9) ledsOn = 9;
+    // Nur alle 2 bis 10 Sekunden neu mischen
+    if (millis() - lastShuffle > nextShuffleInterval) {
+        for (int i = 8; i > 0; i--) {
+            int j = random(0, i + 1);
+            uint8_t temp = ledOrder[i];
+            ledOrder[i] = ledOrder[j];
+            ledOrder[j] = temp;
+        }
+        lastShuffle = millis();
+        nextShuffleInterval = random(2000, 10000); // 2 bis 10 Sekunden
+    }
 
-  const uint8_t ledChannels[9] = {
-    RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS,
-    RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS, RL_NEBEL_RECHTS
-  };
+    float level = abs(sample);
 
-  for (int i = 0; i < 9; i++) {
-    if (i < ledsOn) setLedPWM(ledChannels[i], 255, i); // 255 = volle Helligkeit, i = Kanal
-    else setLedPWM(ledChannels[i], 0, i);
-  }
+    // Dynamik wie gehabt
+    if (level > dynamicMax) dynamicMax = level * attack;
+    else dynamicMax *= decay;
+    if (dynamicMax < 500) dynamicMax = 500;
+
+    // Bereichsgrenzen für die LEDs
+    float step = dynamicMax / 9.0;
+
+    for (int i = 0; i < 9; i++) {
+        float lower = step * i;
+        float upper = step * (i + 1);
+
+        uint8_t brightness = 0;
+        if (level > lower) {
+            brightness = map(level, lower, upper, 0, 255);
+            if (brightness > 255) brightness = 255;
+            if (brightness < 0) brightness = 0;
+        }
+        setLedPWM(ledPins[ledOrder[i]], brightness, ledOrder[i]);
+    }
 }
 
 // =======================================================
@@ -190,7 +218,7 @@ const char* fwVersion = "1.0.0"; // <--- Deine aktuelle Firmware-Version
 
 void checkForUpdates() {
     HTTPClient http;
-    http.begin("https://raw.githubusercontent.com/Hannes1007/AlexaBridge/main/version.txt");
+    http.begin("https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt");
     int httpCode = http.GET();
     if (httpCode == 200) {
         String newVersion = http.getString();
