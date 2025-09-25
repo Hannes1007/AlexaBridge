@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <HTTPClient.h>
+#include <HTTPUpdate.h>
 
 #ifdef ARDUINO_ARCH_ESP32
   #include <WiFi.h>
@@ -182,6 +184,41 @@ void i2sSetPin() {
 #endif
 
 // =======================================================
+// === Firmware Update ===
+const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
+const char* fwVersion = "1.0.0"; // <--- Deine aktuelle Firmware-Version
+
+void checkForUpdates() {
+    HTTPClient http;
+    http.begin("https://raw.githubusercontent.com/Hannes1007/AlexaBridge/main/version.txt");
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+        String newVersion = http.getString();
+        newVersion.trim();
+        if (newVersion != fwVersion) {
+            Serial.println("Neue Firmware-Version gefunden, Update wird durchgeführt...");
+            WiFiClient client;
+            t_httpUpdate_return ret = httpUpdate.update(client, fwUrl);
+            switch (ret) {
+                case HTTP_UPDATE_FAILED:
+                    Serial.printf("Update fehlgeschlagen. Fehler (%d): %s\n", 
+                        httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+                    break;
+                case HTTP_UPDATE_NO_UPDATES:
+                    Serial.println("Keine Updates gefunden.");
+                    break;
+                case HTTP_UPDATE_OK:
+                    Serial.println("Update erfolgreich!");
+                    break;
+            }
+        } else {
+            Serial.println("Firmware ist aktuell.");
+        }
+    }
+    http.end();
+}
+
+// =======================================================
 // === Setup ===
 void setup() {
   Serial.begin(115200);
@@ -264,6 +301,9 @@ void setup() {
     else if (strcmp(device_name, ID_NEBEL_RECHTS) == 0)   rlNebelRechtsControl(state ? value : 0);
 
   });
+
+  // Nach erfolgreichem WLAN-Connect:
+  checkForUpdates();
 }
 
 // =======================================================
