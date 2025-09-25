@@ -214,7 +214,7 @@ void i2sSetPin() {
 // =======================================================
 // === Firmware Update ===
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
-const char* fwVersion = "1.0.4"; // <--- Deine aktuelle Firmware-Version
+const char* fwVersion = "1.0.5"; // <--- Deine aktuelle Firmware-Version
 
 // =======================================================
 // === OTA Update direkt nach WLAN-Connect ===
@@ -332,6 +332,32 @@ void setup() {
 
   // === OTA sofort nach WLAN-Connect prüfen ===
   checkForUpdates();
+
+  // === Versionsnummer-LED-Anzeige ===
+  // Letzte Ziffer der Versionsnummer extrahieren
+  int ledCount = 0;
+  const char* lastDot = strrchr(fwVersion, '.');
+  if (lastDot && isdigit(*(lastDot + 1))) {
+    ledCount = *(lastDot + 1) - '0';
+  }
+  if (ledCount > 9) ledCount = 9;
+  if (ledCount < 1) ledCount = 1;
+
+  // LED-Pins-Array (wie in lightOrgan)
+  const uint8_t ledPins[9] = {
+      RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS,
+      RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS, RL_NEBEL_RECHTS
+  };
+
+  // LEDs einschalten
+  for (int i = 0; i < ledCount; i++) {
+    digitalWrite(ledPins[i], HIGH);
+  }
+  delay(2000);
+  // LEDs wieder ausschalten
+  for (int i = 0; i < ledCount; i++) {
+    digitalWrite(ledPins[i], LOW);
+  }
 
   // === I2S Setup ===
 #ifdef ARDUINO_ARCH_ESP32
