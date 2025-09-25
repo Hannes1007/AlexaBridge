@@ -216,32 +216,45 @@ void i2sSetPin() {
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
 const char* fwVersion = "1.0.2"; // <--- Deine aktuelle Firmware-Version
 
+// =======================================================
+// === OTA Update direkt nach WLAN-Connect ===
 void checkForUpdates() {
+    WiFiClientSecure client;
+    client.setInsecure(); // SSL-Zertifikatsprüfung abschalten
+
     HTTPClient http;
     http.begin("https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt");
     int httpCode = http.GET();
     if (httpCode == 200) {
         String newVersion = http.getString();
         newVersion.trim();
+
         if (newVersion != fwVersion) {
             Serial.println("Neue Firmware-Version gefunden, Update wird durchgeführt...");
-            WiFiClient client;
+
+            httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
             t_httpUpdate_return ret = httpUpdate.update(client, fwUrl);
+
             switch (ret) {
                 case HTTP_UPDATE_FAILED:
-                    Serial.printf("Update fehlgeschlagen. Fehler (%d): %s\n", 
-                        httpUpdate.getLastError(), httpUpdate.getLastErrorString().c_str());
+                    Serial.printf("Update fehlgeschlagen. Fehler (%d): %s\n",
+                        httpUpdate.getLastError(),
+                        httpUpdate.getLastErrorString().c_str());
                     break;
                 case HTTP_UPDATE_NO_UPDATES:
                     Serial.println("Keine Updates gefunden.");
                     break;
                 case HTTP_UPDATE_OK:
-                    Serial.println("Update erfolgreich!");
+                    Serial.println("Update erfolgreich!"); // Gerät startet neu
                     break;
             }
         } else {
-            Serial.println("Firmware ist aktuell.");
+            Serial.print("Firmware ist aktuell.");
+            Serial.println(" (Version " + newVersion + ")");
         }
+    } else {
+        Serial.printf("Fehler beim Abrufen der Version.txt: %d\n", httpCode);
     }
     http.end();
 }
@@ -314,6 +327,9 @@ void setup() {
   if (!wm.autoConnect("ESP_PW_12345678", "12345678")) ESP.restart();
   Serial.println("Verbunden mit: " + WiFi.SSID());
 
+  // === OTA sofort nach WLAN-Connect prüfen ===
+  checkForUpdates();
+
   // === I2S Setup ===
 #ifdef ARDUINO_ARCH_ESP32
   delay(1000);
@@ -368,8 +384,6 @@ void setup() {
 
   });
 
-  // Nach erfolgreichem WLAN-Connect:
-  checkForUpdates();
 }
 
 // =======================================================
