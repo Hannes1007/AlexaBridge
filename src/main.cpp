@@ -396,7 +396,11 @@ void loop() {
         float peak = getRmsPeak();
         float threshold = peak * 0.9;
 
-        if (rms > threshold && canTriggerFog()) {
+        // Mindestgrenze für RMS (z.B. 100, anpassen nach Bedarf)
+        const float minThreshold = 100.0;
+        Serial.println(rms);
+
+        if (rms > threshold && rms > minThreshold && canTriggerFog()) {
           unsigned long fogDuration = random(500, 1201); // 0,5–1,2s
           triggerFog(fogDuration);
           registerFogTrigger();
