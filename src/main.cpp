@@ -26,7 +26,7 @@ const char* WIFI_AP_PASS = "12345678";        // WLAN-AP Passwort für WiFiManag
 
 // --- Firmware Update ---
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin"; // URL zur Firmware
-const char* fwVersion = "1.0.8";  // Aktuelle Firmware-Version des Gerätes
+const char* fwVersion = "1.0.9";  // Aktuelle Firmware-Version des Gerätes
 const char* fwVersionUrl = "https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt"; // URL zur version.txt
 
 // --- Alexa Geräte-Namen ---
@@ -43,7 +43,7 @@ const char* fwVersionUrl = "https://raw.githubusercontent.com/Hannes1007/AlexaBr
 #define ID_RUECK_RECHTS   "RuecklichtRechts"
 #define ID_NEBEL_RECHTS   "Nebelschlussleuchte"
 
-#define ID_PARTY_MODE     "bulliPartyModus"
+#define ID_PARTY_MODE     "PartyModus"
 
 // --- Nebelmaschine ---
 const int FOG_PIN = 32;          // Steuerungs-Pin für die Nebelmaschine (z.B. GPIO32 beim ESP32)
