@@ -26,22 +26,22 @@ const char* WIFI_AP_PASS = "12345678";        // WLAN-AP Passwort für WiFiManag
 
 // --- Firmware Update ---
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin"; // URL zur Firmware
-const char* fwVersion = "1.0.6";  // Aktuelle Firmware-Version des Gerätes
+const char* fwVersion = "1.0.7";  // Aktuelle Firmware-Version des Gerätes
 const char* fwVersionUrl = "https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt"; // URL zur version.txt
 
 // --- Alexa Geräte-Namen ---
-#define ID_FOG            "bulliNebelmaschine"
+#define ID_FOG            "Nebelmaschine"
 
-#define ID_SCHLUSS_LINKS  "bulliSchlussLinks"
-#define ID_BREMS_LINKS    "bulliBremsLinks"
-#define ID_BLINKER_LINKS  "bulliBlinkerLinks"
-#define ID_RUECK_LINKS    "bulliRueckLinks"
+#define ID_SCHLUSS_LINKS  "SchlusslichtLinks"
+#define ID_BREMS_LINKS    "BremslichtLinks"
+#define ID_BLINKER_LINKS  "BlinkerLinks"
+#define ID_RUECK_LINKS    "RuecklichtLinks"
 
-#define ID_SCHLUSS_RECHTS "bulliSchlussRechts"
-#define ID_BREMS_RECHTS   "bulliBremsRechts"
-#define ID_BLINKER_RECHTS "bulliBlinkerRechts"
-#define ID_RUECK_RECHTS   "bulliRueckRechts"
-#define ID_NEBEL_RECHTS   "bulliNebelRechts"
+#define ID_SCHLUSS_RECHTS "SchlusslichtRechts"
+#define ID_BREMS_RECHTS   "BremslichtRechts"
+#define ID_BLINKER_RECHTS "BlinkerRechts"
+#define ID_RUECK_RECHTS   "RuecklichtRechts"
+#define ID_NEBEL_RECHTS   "Nebelschlussleuchte"
 
 #define ID_PARTY_MODE     "bulliPartyModus"
 
@@ -71,9 +71,21 @@ const uint8_t RL_NEBEL_RECHTS       = 16; // Nebelschlusslicht rechts
 
 // --- Party-Modus ---
 bool partyModeActive = false;         // Party-Modus beim Start aktiv (true) oder inaktiv (false)
-float dynamicMax = 1000.0;            // Dynamikbereich für RMS-Normalisierung
-const float decay = 0.995;            // Abklingfaktor für dynamische Anpassung
-const float attack = 1.2;             // Verstärkungsfaktor bei plötzlichen Ausschlägen
+float dynamicMax = 1000.0;  // Maximale RMS-Normalisierung.
+                            // -> Kleineren Wert einstellen (z. B. 500.0), wenn die Lichtorgel
+                            //    empfindlicher auf leise Musik reagieren soll.
+                            // -> Größeren Wert einstellen (z. B. 2000.0), wenn sie nur bei
+                            //    lauter Musik reagieren soll.
+
+const float attack = 1.2;   // Verstärkungsfaktor für schnelle Ausschläge (Beats).
+                            // -> Höherer Wert (z. B. 1.5) = stärkere Reaktion auf Peaks.
+                            // -> Niedrigerer Wert (z. B. 1.0) = gleichmäßigere Anzeige.
+
+const float decay = 0.995;  // Abklingfaktor, wie schnell die LED-Helligkeit wieder absinkt.
+                            // -> Kleinerer Wert (z. B. 0.990) = LEDs gehen schneller zurück,
+                            //    dadurch wirkt die Lichtorgel "flinker".
+                            // -> Größerer Wert (z. B. 0.999) = LEDs bleiben länger hell,
+                            //    dadurch wirkt die Anzeige träger.
 float fogSensitivity = 1.0;           // Empfindlichkeit der Nebelmaschine im Party-Modus
 static unsigned long lastShuffle = 0; // Letztes Shuffle-Event
 static unsigned long nextShuffleInterval = 2000; // Nächstes Shuffle-Intervall (ms)
