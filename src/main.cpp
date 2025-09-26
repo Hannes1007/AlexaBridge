@@ -26,7 +26,7 @@ const char* WIFI_AP_PASS = "12345678";        // WLAN-AP Passwort für WiFiManag
 
 // --- Firmware Update ---
 const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin"; // URL zur Firmware
-const char* fwVersion = "1.0.7";  // Aktuelle Firmware-Version des Gerätes
+const char* fwVersion = "1.0.8";  // Aktuelle Firmware-Version des Gerätes
 const char* fwVersionUrl = "https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt"; // URL zur version.txt
 
 // --- Alexa Geräte-Namen ---
@@ -63,11 +63,11 @@ const uint8_t RL_BLINKER_LINKS      = 26; // Blinker links
 const uint8_t RL_RUECKFAHR_LINKS    = 27; // Rückfahrlicht links
 
 // --- LED-Kanäle rechts ---
-const uint8_t RL_SCHLUSS_RECHTS     = 19; // Schlusslicht rechts
-const uint8_t RL_BREMS_RECHTS       = 18; // Bremslicht rechts
-const uint8_t RL_BLINKER_RECHTS     = 5;  // Blinker rechts
-const uint8_t RL_RUECKFAHR_RECHTS   = 17; // Rückfahrlicht rechts
-const uint8_t RL_NEBEL_RECHTS       = 16; // Nebelschlusslicht rechts
+const uint8_t RL_SCHLUSS_RECHTS     = 18; // Schlusslicht rechts
+const uint8_t RL_BREMS_RECHTS       = 5; // Bremslicht rechts
+const uint8_t RL_BLINKER_RECHTS     = 17;  // Blinker rechts
+const uint8_t RL_RUECKFAHR_RECHTS   = 16; // Rückfahrlicht rechts
+const uint8_t RL_NEBEL_RECHTS       = 19; // Nebelschlusslicht rechts
 
 // --- Party-Modus ---
 bool partyModeActive = false;         // Party-Modus beim Start aktiv (true) oder inaktiv (false)
