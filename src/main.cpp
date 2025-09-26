@@ -16,7 +16,20 @@
 fauxmoESP fauxmo;
 
 // =======================================================
-// === Alexa-Geräte ===
+// === KONFIGURATIONSPARAMETER ===
+// =======================================================
+
+// --- WLAN & Steuerung ---
+const int WIFI_RESET_PIN = 4;                // Pin für WLAN Reset Button (z.B. GPIO4 beim ESP32)
+const char* WIFI_AP_NAME = "ESP_PW_12345678"; // WLAN-AP Name für WiFiManager
+const char* WIFI_AP_PASS = "12345678";        // WLAN-AP Passwort für WiFiManager
+
+// --- Firmware Update ---
+const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin"; // URL zur Firmware
+const char* fwVersion = "1.0.6";  // Aktuelle Firmware-Version des Gerätes
+const char* fwVersionUrl = "https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt"; // URL zur version.txt
+
+// --- Alexa Geräte-Namen ---
 #define ID_FOG            "bulliNebelmaschine"
 
 #define ID_SCHLUSS_LINKS  "bulliSchlussLinks"
@@ -28,51 +41,61 @@ fauxmoESP fauxmo;
 #define ID_BREMS_RECHTS   "bulliBremsRechts"
 #define ID_BLINKER_RECHTS "bulliBlinkerRechts"
 #define ID_RUECK_RECHTS   "bulliRueckRechts"
-#define ID_NEBEL_RECHTS    "bulliNebelRechts"
+#define ID_NEBEL_RECHTS   "bulliNebelRechts"
 
 #define ID_PARTY_MODE     "bulliPartyModus"
 
+// --- Nebelmaschine ---
+const int FOG_PIN = 32;          // Steuerungs-Pin für die Nebelmaschine (z.B. GPIO32 beim ESP32)
+const unsigned long FOG_MIN_INTERVAL = 2000; // Minimales Intervall zwischen zwei Auslösungen (ms)
+
+// --- I2S Mikrofon (INMP441) ---
+#define I2S_WS    23             // Word Select Pin (LRCL)
+#define I2S_SD    21             // Serial Data Pin (DOUT vom Mikrofon)
+#define I2S_SCK   22             // Serial Clock Pin (BCLK)
+#define I2S_PORT  I2S_NUM_0      // I2S-Port
+#define BUFFER_LEN 64            // Puffergröße für Samples
+
+// --- LED-Kanäle links ---
+const uint8_t RL_SCHLUSS_LINKS      = 33; // Schlusslicht links
+const uint8_t RL_BREMS_LINKS        = 25; // Bremslicht links
+const uint8_t RL_BLINKER_LINKS      = 26; // Blinker links
+const uint8_t RL_RUECKFAHR_LINKS    = 27; // Rückfahrlicht links
+
+// --- LED-Kanäle rechts ---
+const uint8_t RL_SCHLUSS_RECHTS     = 19; // Schlusslicht rechts
+const uint8_t RL_BREMS_RECHTS       = 18; // Bremslicht rechts
+const uint8_t RL_BLINKER_RECHTS     = 5;  // Blinker rechts
+const uint8_t RL_RUECKFAHR_RECHTS   = 17; // Rückfahrlicht rechts
+const uint8_t RL_NEBEL_RECHTS       = 16; // Nebelschlusslicht rechts
+
+// --- Party-Modus ---
+bool partyModeActive = false;         // Party-Modus beim Start aktiv (true) oder inaktiv (false)
+float dynamicMax = 1000.0;            // Dynamikbereich für RMS-Normalisierung
+const float decay = 0.995;            // Abklingfaktor für dynamische Anpassung
+const float attack = 1.2;             // Verstärkungsfaktor bei plötzlichen Ausschlägen
+float fogSensitivity = 1.0;           // Empfindlichkeit der Nebelmaschine im Party-Modus
+static unsigned long lastShuffle = 0; // Letztes Shuffle-Event
+static unsigned long nextShuffleInterval = 2000; // Nächstes Shuffle-Intervall (ms)
+
+// --- Nebel Trigger-Begrenzung ---
+const int RMS_HISTORY_SECONDS = 60;   // RMS-Verlauf für dynamischen Peak-Vergleich
+const float RMS_MIN_THRESHOLD = 100.0; // Mindestgrenze für RMS-Wert, um Nebel auszulösen
+const unsigned long FOG_TRIGGER_LIMIT_MS = 60000; // Zeitfenster für Trigger-Limit (ms)
+const int FOG_TRIGGER_MAX = 2;        // Max. Anzahl Trigger im Zeitfenster
+
 // =======================================================
-// === Pin-Konstanten ===
-const int WIFI_RESET_PIN = 4;  // WLAN Reset Button (ESP32 Beispiel GPIO4)
-const int FOG_PIN = 32;         // Nebelmaschinen Servo (ESP32 Beispiel GPIO13)
+// === Parameter ===
+// =======================================================
 
-// I2S Mikrofon (INMP441)
-#define I2S_WS    23
-#define I2S_SD    21
-#define I2S_SCK   22
-#define I2S_PORT  I2S_NUM_0
-#define BUFFER_LEN 64
+// Buffer für I2S
 int16_t sBuffer[BUFFER_LEN];
-
-// LED-Kanäle links (ESP32 Pins)
-const uint8_t RL_SCHLUSS_LINKS      = 33;
-const uint8_t RL_BREMS_LINKS        = 25;
-const uint8_t RL_BLINKER_LINKS      = 26;
-const uint8_t RL_RUECKFAHR_LINKS    = 27;
-
-// LED-Kanäle rechts (ESP32 Pins)
-const uint8_t RL_SCHLUSS_RECHTS     = 19;
-const uint8_t RL_BREMS_RECHTS       = 18;
-const uint8_t RL_BLINKER_RECHTS     = 5;
-const uint8_t RL_RUECKFAHR_RECHTS   = 17;
-const uint8_t RL_NEBEL_RECHTS       = 16;
-
 
 // =======================================================
 // === Globale Variablen ===
-bool partyModeActive = false; // Party-Modus standardmäßig an
-
-float dynamicMax = 1000.0;
-const float decay = 0.995;
-const float attack = 1.2;
-
-// Empfindlichkeit der Nebelmaschine im Party-Modus
-float fogSensitivity = 1.0;
-
-// Für Party-Lichtorgel: Shuffle-Intervall global
-static unsigned long lastShuffle = 0;
-static unsigned long nextShuffleInterval = 2000;
+float rmsHistory[RMS_HISTORY_SECONDS] = {0};
+unsigned long rmsIndex = 0;
+unsigned long fogTriggerTimes[2] = {0, 0}; 
 
 // =======================================================
 // === Hilfsfunktionen: PWM Steuerung ===
@@ -98,7 +121,6 @@ void rlBremsRechtsControl(uint8_t brightness)     { setLedPWM(RL_BREMS_RECHTS, b
 void rlBlinkerRechtsControl(uint8_t brightness)   { setLedPWM(RL_BLINKER_RECHTS, brightness, 6); }
 void rlRueckfahrRechtsControl(uint8_t brightness) { setLedPWM(RL_RUECKFAHR_RECHTS, brightness, 7); }
 void rlNebelRechtsControl(uint8_t brightness)     { setLedPWM(RL_NEBEL_RECHTS, brightness, 8); }
-
 
 // =======================================================
 // === Party-Modus Lichtorgel ===
@@ -158,7 +180,7 @@ struct FogMachine
   unsigned long minInterval;
 };
 
-FogMachine fog = {false, 0, 0, 0, 2000}; // minInterval = 2 Sekunden
+FogMachine fog = {false, 0, 0, 0, FOG_MIN_INTERVAL}; 
 
 void triggerFog(unsigned long dur_ms) {
   if (millis() - fog.lastTrigger < fog.minInterval) return;
@@ -213,17 +235,12 @@ void i2sSetPin() {
 
 // =======================================================
 // === Firmware Update ===
-const char* fwUrl = "https://github.com/Hannes1007/AlexaBridge/releases/latest/download/firmware.bin";
-const char* fwVersion = "1.0.5"; // <--- Deine aktuelle Firmware-Version
-
-// =======================================================
-// === OTA Update direkt nach WLAN-Connect ===
 void checkForUpdates() {
     WiFiClientSecure client;
     client.setInsecure(); // SSL-Zertifikatsprüfung abschalten
 
     HTTPClient http;
-    http.begin("https://raw.githubusercontent.com/Hannes1007/AlexaBridge/master/version.txt");
+    http.begin(fwVersionUrl);
     int httpCode = http.GET();
     if (httpCode == 200) {
         String newVersion = http.getString();
@@ -263,12 +280,6 @@ void checkForUpdates() {
 }
 
 // --- Peak-Detection & Trigger-Limitierung ---
-const int RMS_HISTORY_SECONDS = 60;
-float rmsHistory[RMS_HISTORY_SECONDS] = {0};
-unsigned long rmsIndex = 0;
-
-unsigned long fogTriggerTimes[2] = {0, 0}; // Zeitpunkte der letzten 2 Trigger
-
 void addRmsSample(float rms) {
     rmsHistory[rmsIndex] = rms;
     rmsIndex = (rmsIndex + 1) % RMS_HISTORY_SECONDS;
@@ -286,9 +297,9 @@ bool canTriggerFog() {
     unsigned long now = millis();
     int count = 0;
     for (int i = 0; i < 2; i++) {
-        if (now - fogTriggerTimes[i] < 60000) count++;
+        if (now - fogTriggerTimes[i] < FOG_TRIGGER_LIMIT_MS) count++;
     }
-    return count < 2;
+    return count < FOG_TRIGGER_MAX;
 }
 
 void registerFogTrigger() {
@@ -327,14 +338,13 @@ void setup() {
     wm.resetSettings();
     ESP.restart();
   }
-  if (!wm.autoConnect("ESP_PW_12345678", "12345678")) ESP.restart();
+  if (!wm.autoConnect(WIFI_AP_NAME, WIFI_AP_PASS)) ESP.restart();
   Serial.println("Verbunden mit: " + WiFi.SSID());
 
   // === OTA sofort nach WLAN-Connect prüfen ===
   checkForUpdates();
 
   // === Versionsnummer-LED-Anzeige ===
-  // Letzte Ziffer der Versionsnummer extrahieren
   int ledCount = 0;
   const char* lastDot = strrchr(fwVersion, '.');
   if (lastDot && isdigit(*(lastDot + 1))) {
@@ -343,18 +353,15 @@ void setup() {
   if (ledCount > 9) ledCount = 9;
   if (ledCount < 1) ledCount = 1;
 
-  // LED-Pins-Array (wie in lightOrgan)
   const uint8_t ledPins[9] = {
       RL_SCHLUSS_LINKS, RL_BREMS_LINKS, RL_BLINKER_LINKS, RL_RUECKFAHR_LINKS,
       RL_SCHLUSS_RECHTS, RL_BREMS_RECHTS, RL_BLINKER_RECHTS, RL_RUECKFAHR_RECHTS, RL_NEBEL_RECHTS
   };
 
-  // LEDs einschalten
   for (int i = 0; i < ledCount; i++) {
     digitalWrite(ledPins[i], HIGH);
   }
   delay(2000);
-  // LEDs wieder ausschalten
   for (int i = 0; i < ledCount; i++) {
     digitalWrite(ledPins[i], LOW);
   }
@@ -394,7 +401,7 @@ void setup() {
     Serial.printf("[MAIN] Device #%d (%s) state: %s value: %d\n",
                   device_id, device_name, state ? "ON" : "OFF", value);
 
-    if (strcmp(device_name, ID_FOG) == 0) triggerFog(value * 10); // Einfache Steuerung
+    if (strcmp(device_name, ID_FOG) == 0) triggerFog(value * 10); 
     else if (strcmp(device_name, ID_PARTY_MODE) == 0) {
       partyModeActive = state;
       Serial.println(partyModeActive ? "🎉 Party-Modus EIN" : "⏹ Party-Modus AUS");
@@ -425,7 +432,6 @@ void loop() {
   if (result == ESP_OK) {
     int samples_read = bytesIn / sizeof(int16_t);
     if (samples_read > 0) {
-      // RMS berechnen
       float sum = 0;
       for (int i = 0; i < samples_read; i++) sum += sBuffer[i] * sBuffer[i];
       float rms = sqrt(sum / samples_read);
@@ -433,18 +439,15 @@ void loop() {
       addRmsSample(rms);
 
       if (partyModeActive) {
-        lightOrgan(rms); // Lichtorgel
+        lightOrgan(rms); 
 
-        // Dynamischer Schwellenwert: 90% des Maximums der letzten 60s
         float peak = getRmsPeak();
         float threshold = peak * 0.9;
 
-        // Mindestgrenze für RMS (z.B. 100, anpassen nach Bedarf)
-        const float minThreshold = 100.0;
         Serial.println(rms);
 
-        if (rms > threshold && rms > minThreshold && canTriggerFog()) {
-          unsigned long fogDuration = random(500, 1201); // 0,5–1,2s
+        if (rms > threshold && rms > RMS_MIN_THRESHOLD && canTriggerFog()) {
+          unsigned long fogDuration = random(500, 1201); 
           triggerFog(fogDuration);
           registerFogTrigger();
         }
@@ -453,6 +456,6 @@ void loop() {
   }
 #endif
 
-  updateFogMachine(); // immer aufrufen
+  updateFogMachine(); 
   fauxmo.handle();
 }
